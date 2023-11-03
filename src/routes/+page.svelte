@@ -4,6 +4,16 @@
 	import { onMount, onDestroy } from 'svelte';
 
 	let map;
+	let currentBattle = {
+		title: '',
+		data: '',
+		startDate: '',
+		endDate: '',
+		casualties: '',
+		description: '',
+		image: '',
+		partOf: '',
+	};
 
 	onMount(() => {
 		const mapboxkey = 'pk.eyJ1IjoiYWxleDIyNDAiLCJhIjoiY2xvMDNjYjFnMTRycDJubzZlc3NnbG56byJ9.fVFXHiJm2WS5M33-4gH20g';
@@ -20,7 +30,10 @@
 			fetchBattlesData().then((data) => {
 				data.results.bindings.forEach((battle) => {
 					if (battle.latitude && battle.longitude) {
-						addMarker(battle);
+						console.log;
+						if (doesNotContainPattern(battle.battleLabel.value)) {
+							addMarker(battle);
+						}
 					}
 				});
 			});
@@ -35,7 +48,7 @@
 
 	async function fetchBattlesData() {
 		const sparqlQuery = `
-		SELECT ?battle ?battleLabel ?date ?startDate ?endDate ?latitude ?longitude ?casualties ?image
+		SELECT ?battle ?battleLabel ?date ?startDate ?endDate ?latitude ?longitude ?casualties ?image ?partOf
 		WHERE {
 				?battle wdt:P31 wd:Q178561.
 				OPTIONAL { ?battle wdt:P585 ?date. }
@@ -49,6 +62,7 @@
 				}
 				OPTIONAL { ?battle wdt:P1120 ?casualties. }
 				OPTIONAL { ?battle wdt:P18 ?image. }
+				OPTIONAL { ?battle wdt:P361 ?partOf. }
 				SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 		}
 	`;
@@ -77,7 +91,18 @@
 		el.style.height = '10px';
 		el.style.borderRadius = '50%';
 		el.addEventListener('click', () => {
+			currentBattle = {
+				title: data.battleLabel.value,
+				startDate: data.startDate ? data.startDate.value : '',
+				endDate: data.endDate ? data.endDate.value : '',
+				casualties: data.casualties ? data.casualties.value : '',
+				description: data.description ? data.description.value : '',
+				image: data.image ? data.image.value : '',
+				partOf: data.partOf ? data.partOf.value : '',
+			};
+			console.log(currentBattle);
 			console.log(data);
+			document.getElementById('sidebar').style.right = '0';
 		});
 
 		const coordinates = data.latitude && data.longitude ? [data.longitude.value, data.latitude.value] : null;
@@ -87,9 +112,25 @@
 			console.log('no coordinates', data);
 		}
 	}
+
+	function doesNotContainPattern(inputString) {
+		const patternToExclude = /Q\d+/;
+		return !patternToExclude.test(inputString);
+	}
+	function closeSidebar() {
+		document.getElementById('sidebar').style.right = '-300px';
+	}
 </script>
 
 <div id="map" />
+<div id="sidebar">
+	<span class="close" on:click={closeSidebar}>x</span>
+	<img src={currentBattle.image} alt={currentBattle.title} class="image" />
+	<h2 class="title">{currentBattle.title}</h2>
+	<p class="date">{currentBattle.description}</p>
+	<p class="casualties">{currentBattle.casualties}</p>
+	<p class="description">{currentBattle.description}</p>
+</div>
 
 <style>
 	#map {
@@ -97,5 +138,32 @@
 		top: 0;
 		bottom: 0;
 		width: 100%;
+	}
+
+	#sidebar {
+		font-family: Arial, Helvetica, sans-serif;
+		position: absolute;
+		top: 0;
+		right: -300px;
+		width: 300px;
+		height: 100%;
+		background-color: #fff;
+		overflow: auto;
+		transition: right 0.3s ease-in-out;
+	}
+
+	.image {
+		width: 100%;
+	}
+
+	.close {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 30px;
+		height: 30px;
+		font-size: 30px;
+		background-color: transparent;
+		content: 'x';
 	}
 </style>
