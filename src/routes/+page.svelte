@@ -30,7 +30,6 @@
 			fetchBattlesData().then((data) => {
 				data.results.bindings.forEach((battle) => {
 					if (battle.coordinates) {
-						console.log;
 						if (doesNotContainPattern(battle.battleLabel.value)) {
 							addMarker(battle);
 						}
@@ -81,7 +80,7 @@
 
 	function extractCoordinates(input) {
 		// Match the numbers using a regular expression
-		const matches = input.match(/\d+\.\d+/g);
+		const matches = input.match(/-?\d+\.\d+/g);
 
 		// Check if there are at least two matches (latitude and longitude)
 		if (matches && matches.length >= 2) {
