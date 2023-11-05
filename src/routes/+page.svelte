@@ -4,6 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 
 	let map;
+	let loading = true;
 	let currentBattle = {
 		title: '',
 		data: '',
@@ -34,6 +35,7 @@
 							addMarker(battle);
 						}
 					}
+					loading = false;
 				});
 			});
 		});
@@ -71,7 +73,6 @@
 			}
 
 			const data = await response.json();
-			console.log(data);
 			return data;
 		} catch (error) {
 			console.error('Error fetching data:', error);
@@ -86,7 +87,6 @@
 		if (matches && matches.length >= 2) {
 			const latitude = parseFloat(matches[0]);
 			const longitude = parseFloat(matches[1]);
-			console.log(latitude, longitude);
 			return [latitude, longitude];
 		} else {
 			return null; // Return null or handle the error as needed
@@ -96,15 +96,16 @@
 	function addMarker(data) {
 		const el = document.createElement('div');
 		el.className = 'marker';
-		el.style.backgroundColor = '#ff0000';
-		el.style.width = '10px';
-		el.style.height = '10px';
+		el.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+		el.style.width = '8px';
+		el.style.height = '8px';
 		el.style.borderRadius = '50%';
 		el.addEventListener('click', () => {
 			currentBattle = {
 				title: data.battleLabel.value,
-				startDate: data.startDate ? data.startDate.value : '',
-				endDate: data.endDate ? data.endDate.value : '',
+				date: data.date ? convertDate(data.date.value) : '',
+				startDate: data.startDate ? convertDate(data.startDate.value) : '',
+				endDate: data.endDate ? convertDate(data.endDate.value) : '',
 				casualties: data.casualties ? data.casualties.value : '',
 				description: data.description ? data.description.value : '',
 				image: data.image ? data.image.value : '',
@@ -128,19 +129,54 @@
 		return !patternToExclude.test(inputString);
 	}
 
+	function convertDate(date) {
+		//convert date to April 1, 2020 format
+		const dateObj = new Date(date);
+		const month = dateObj.toLocaleString('default', { month: 'long' });
+		const day = dateObj.getDate();
+		const year = dateObj.getFullYear();
+		return `${month} ${day}, ${year}`;
+	}
+
 	function closeSidebar() {
 		document.getElementById('sidebar').style.right = '-300px';
 	}
 </script>
 
+{#if loading}
+	<div class="loader-container">
+		<div class="loader" />
+	</div>
+{/if}
 <div id="map" />
 <div id="sidebar">
-	<span class="close" on:click={closeSidebar}>x</span>
-	<img src={currentBattle.image} alt={currentBattle.title} class="image" />
+	<button class="close" on:click={closeSidebar}>&#128473;</button>
+	{#if currentBattle.image}
+		<div class="image-container">
+			<img src={currentBattle.image} alt={currentBattle.title} ariaclass="image" class="image" />
+		</div>
+	{:else}
+		<div class="image-container">
+			<img src="https://placehold.jp/30/dd6699/ffffff/300x200.png?text=no+image" alt={currentBattle.title} ariaclass="image" class="image" />
+		</div>
+	{/if}
 	<h2 class="title">{currentBattle.title}</h2>
-	<p class="date">{currentBattle.description}</p>
-	<p class="casualties">{currentBattle.casualties}</p>
-	<p class="description">{currentBattle.description}</p>
+	{#if currentBattle.startDate}
+		{#if currentBattle.endDate}
+			<p class="date">Date: {currentBattle.startDate} - {currentBattle.endDate}</p>
+		{:else}
+			<p class="date">Date: {currentBattle.startDate}</p>
+		{/if}
+	{/if}
+	{#if currentBattle.partOf}
+		<p class="partOf">Part of: {currentBattle.partOf}</p>
+	{/if}
+	{#if currentBattle.casualties}
+		<p class="casualties">Number of deaths: {currentBattle.casualties}</p>
+	{/if}
+	{#if currentBattle.description}
+		<p class="description">Description: {currentBattle.description}</p>
+	{/if}
 </div>
 
 <style>
@@ -163,8 +199,16 @@
 		transition: right 0.3s ease-in-out;
 	}
 
+	.image-container {
+		width: 100%;
+		min-height: 300px;
+		max-height: 300px;
+		display: flex;
+		justify-content: center;
+	}
 	.image {
 		width: 100%;
+		max-height: 300px;
 	}
 
 	.close {
@@ -173,8 +217,35 @@
 		right: 0;
 		width: 30px;
 		height: 30px;
-		font-size: 30px;
+		font-size: 18px;
+		margin: 0;
+		padding: 0;
+		color: lightgray !important;
+		border: none;
 		background-color: transparent;
-		content: 'x';
+	}
+
+	.loader-container {
+		position: absolute;
+		z-index: 100;
+		top: calc(50% - 60px);
+		left: calc(50% - 60px);
+	}
+	.loader {
+		border: 16px solid #f3f3f3; /* Light grey */
+		border-top: 16px solid #3498db; /* Blue */
+		border-radius: 50%;
+		width: 120px;
+		height: 120px;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 </style>
