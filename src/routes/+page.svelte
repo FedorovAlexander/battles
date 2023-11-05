@@ -217,12 +217,14 @@
 		right: 0;
 		width: 30px;
 		height: 30px;
-		font-size: 18px;
+		font-size: 30px;
 		margin: 0;
 		padding: 0;
 		color: lightgray !important;
 		border: none;
 		background-color: transparent;
+		cursor: pointer;
+		line-height: 30px;
 	}
 
 	.loader-container {
