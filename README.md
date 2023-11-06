@@ -1,38 +1,47 @@
-# create-svelte
+# Project Name: Historical Battles Atlas
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+## Overview
 
-## Creating a project
+Historical Battles Atlas is a web application that provides an interactive and informative visualization of battles throughout human history. It uses Svelte for the frontend and Mapbox for mapping capabilities, and it sources its data from Wikidata and Wikipedia. With this project, you can explore and learn about various battles, their locations, dates, and other relevant information in a user-friendly interface.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Features
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+- Interactive map displaying battle locations.
+- Information panels with details on each battle, sourced from Wikipedia.
+- Responsive design for a seamless user experience on both desktop and mobile devices.
 
-# create a new project in my-app
-npm create svelte@latest my-app
-```
+## Getting Started
 
-## Developing
+To run this project locally, follow these steps:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+1. Clone the repository to your local machine:
 
-```bash
-npm run dev
+   ```bash
+   git clone https://github.com/FedorovAlexander/battles.git
+   ```
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+2. Navigate to the project directory:
 
-## Building
+   ```bash
+   cd historical-battles-atlas
+   ```
 
-To create a production version of your app:
+3. Install the dependencies:
 
-```bash
-npm run build
-```
+   ```bash
+   npm install
+   ```
 
-You can preview the production build with `npm run preview`.
+4. Start the development server:
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+   ```bash
+   npm run dev
+   ```
+
+## Data Sources
+
+This project relies on data from Wikidata and Wikipedia to populate battle information. It fetches data from these sources dynamically, ensuring that the information is up-to-date and accurate.
+
+## License
+
+This project is licensed under the MIT License. You are free to use, modify, and distribute this project in accordance with the terms of the license.
