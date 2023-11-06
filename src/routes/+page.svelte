@@ -19,15 +19,18 @@
 		link: '',
 	};
 
+	let battleLabelsArray = [];
+	let markersCoordinatesArray = [];
+
 	onMount(() => {
 		const mapboxkey = 'pk.eyJ1IjoiYWxleDIyNDAiLCJhIjoiY2xvMDNjYjFnMTRycDJubzZlc3NnbG56byJ9.fVFXHiJm2WS5M33-4gH20g';
 		mapboxgl.accessToken = mapboxkey;
 
 		map = new mapboxgl.Map({
 			container: 'map',
-			style: 'mapbox://styles/mapbox/streets-v11',
+			style: 'mapbox://styles/mapbox/dark-v11',
 			center: [10.451526, 51.165691],
-			zoom: 1,
+			zoom: 3,
 		});
 
 		map.on('load', () => {
@@ -107,7 +110,23 @@
 
 		const coordinates = extractCoordinates(data.coordinates.value);
 		if (coordinates) {
-			const marker = new mapboxgl.Marker(el).setLngLat(coordinates).addTo(map);
+			//check if battleLabel is already in battleLabelsArray
+			if (!battleLabelsArray.includes(data.battleLabel.value)) {
+				//check if coordinates are already in markersCoordinatesArray
+				battleLabelsArray.push(data.battleLabel.value);
+				if (markersCoordinatesArray.includes(coordinates)) {
+					//if coordinates are already in markersCoordinatesArray, add a small random number to the coordinates
+					coordinates[0] += Math.random() * 0.01;
+					coordinates[1] += Math.random() * 0.01;
+					markersCoordinatesArray.push(coordinates);
+					//add marker to map
+					new mapboxgl.Marker(el).setLngLat(coordinates).addTo(map);
+				} else {
+					markersCoordinatesArray.push(coordinates);
+					//add marker to map
+					new mapboxgl.Marker(el).setLngLat(coordinates).addTo(map);
+				}
+			}
 		} else {
 			console.log('no coordinates', data);
 		}
@@ -169,10 +188,6 @@
 		<div class="image-container">
 			<img src={currentBattle.image} alt={currentBattle.title} ariaclass="image" class="image" />
 		</div>
-	{:else}
-		<div class="image-container">
-			<img src="https://placehold.jp/30/d3d3d3/ffffff/300x200.png?text=no+image" alt={currentBattle.title} ariaclass="image" class="image" />
-		</div>
 	{/if}
 	<h2 class="title">{currentBattle.title}</h2>
 	{#if currentBattle.startDate}
@@ -183,7 +198,7 @@
 		{/if}
 	{/if}
 	{#if currentBattle.link}
-		<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Article in Wikipedia</a>
+		<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Wikipedia &#x1f517;</a>
 	{/if}
 	{#if currentBattle.description}
 		<p class="description">{currentBattle.description}</p>
@@ -213,7 +228,7 @@
 	.image-container {
 		width: 100%;
 		max-height: fit-content;
-		min-height: 300px;
+		min-height: fit-content;
 		display: flex;
 		justify-content: center;
 	}
@@ -264,6 +279,8 @@
 		margin: 0;
 		padding: 10px;
 		color: darkslategray;
+		text-decoration: none;
+		font-weight: 500;
 	}
 
 	.loader-container {
