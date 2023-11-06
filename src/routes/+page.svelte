@@ -19,8 +19,12 @@
 		link: '',
 	};
 
-	let battleLabelsArray = [];
 	let markersCoordinatesArray = [];
+	let battleLabelsArray = [];
+	let battlesGeoJson = {
+		type: 'FeatureCollection',
+		features: [],
+	};
 
 	onMount(() => {
 		const mapboxkey = 'pk.eyJ1IjoiYWxleDIyNDAiLCJhIjoiY2xvMDNjYjFnMTRycDJubzZlc3NnbG56byJ9.fVFXHiJm2WS5M33-4gH20g';
@@ -30,7 +34,7 @@
 			container: 'map',
 			style: 'mapbox://styles/mapbox/dark-v11',
 			center: [10.451526, 51.165691],
-			zoom: 3,
+			zoom: 3.5,
 		});
 
 		map.on('load', () => {
@@ -44,6 +48,9 @@
 					loading = false;
 				});
 			});
+			setTimeout(() => {
+				addLayers();
+			}, 1000);
 		});
 	});
 
@@ -52,6 +59,96 @@
 			map.remove();
 		}
 	});
+
+	function addLayers() {
+		map.addSource('battles', {
+			type: 'geojson',
+			// Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+			// from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+			data: battlesGeoJson,
+			cluster: true,
+			clusterMaxZoom: 14, // Max zoom to cluster points on
+			clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+		});
+
+		map.addLayer({
+			id: 'clusters',
+			type: 'circle',
+			source: 'battles',
+			filter: ['has', 'point_count'],
+			paint: {
+				// Use step expressions (https://docs.mapbox.com/style-spec/reference/expressions/#step)
+				// with three steps to implement three types of circles:
+				//   * Blue, 20px circles when point count is less than 100
+				//   * Yellow, 30px circles when point count is between 100 and 750
+				//   * Pink, 40px circles when point count is greater than or equal to 750
+				'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 100, '#f1f075', 750, '#f28cb1'],
+				'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 750, 40],
+			},
+		});
+
+		map.addLayer({
+			id: 'cluster-count',
+			type: 'symbol',
+			source: 'battles',
+			filter: ['has', 'point_count'],
+			layout: {
+				'text-field': ['get', 'point_count_abbreviated'],
+				'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+				'text-size': 12,
+			},
+		});
+
+		map.addLayer({
+			id: 'unclustered-point',
+			type: 'circle',
+			source: 'battles',
+			filter: ['!', ['has', 'point_count']],
+			paint: {
+				'circle-color': '#11b4da',
+				'circle-radius': 4,
+				'circle-stroke-width': 1,
+				'circle-stroke-color': '#fff',
+			},
+		});
+
+		// inspect a cluster on click
+		map.on('click', 'clusters', (e) => {
+			const features = map.queryRenderedFeatures(e.point, {
+				layers: ['clusters'],
+			});
+			const clusterId = features[0].properties.cluster_id;
+			map.getSource('battles').getClusterExpansionZoom(clusterId, (err, zoom) => {
+				if (err) return;
+
+				map.easeTo({
+					center: features[0].geometry.coordinates,
+					zoom: zoom,
+				});
+			});
+		});
+
+		map.on('click', 'unclustered-point', (e) => {
+			const coordinates = e.features[0].geometry.coordinates.slice();
+
+			while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+			}
+			//open sidebar
+			currentBattle = {
+				title: e.features[0].properties.title,
+				date: e.features[0].properties.date,
+				startDate: e.features[0].properties.startDate,
+				endDate: e.features[0].properties.endDate,
+				casualties: e.features[0].properties.casualties,
+				description: e.features[0].properties.description,
+				image: e.features[0].properties.image,
+			};
+			fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+
+			document.getElementById('sidebar').style.right = '0';
+		});
+	}
 
 	async function fetchBattlesData() {
 		const sparqlQuery = `
@@ -114,22 +211,37 @@
 			if (!battleLabelsArray.includes(data.battleLabel.value)) {
 				//check if coordinates are already in markersCoordinatesArray
 				battleLabelsArray.push(data.battleLabel.value);
-				if (markersCoordinatesArray.includes(coordinates)) {
+				if (markersCoordinatesArray.includes(coordinates[0])) {
 					//if coordinates are already in markersCoordinatesArray, add a small random number to the coordinates
-					coordinates[0] += Math.random() * 0.01;
-					coordinates[1] += Math.random() * 0.01;
-					markersCoordinatesArray.push(coordinates);
-					//add marker to map
-					new mapboxgl.Marker(el).setLngLat(coordinates).addTo(map);
+					coordinates[0] += Math.random() * 0.1;
+					coordinates[1] += Math.random() * 0.1;
+					markersCoordinatesArray.push(coordinates[0]);
+					pushGeoJson(data, coordinates);
 				} else {
-					markersCoordinatesArray.push(coordinates);
-					//add marker to map
-					new mapboxgl.Marker(el).setLngLat(coordinates).addTo(map);
+					markersCoordinatesArray.push(coordinates[0]);
+					pushGeoJson(data, coordinates);
 				}
+			} else {
+				console.log('battle already exist');
 			}
-		} else {
-			console.log('no coordinates', data);
 		}
+	}
+
+	function pushGeoJson(data, coordinates) {
+		battlesGeoJson.features.push({
+			type: 'Feature',
+			properties: {
+				title: data.battleLabel.value,
+				image: data.image ? data.image.value : '',
+				startDate: data.startDate ? convertDate(data.startDate.value) : '',
+				endDate: data.endDate ? convertDate(data.endDate.value) : '',
+				description: data.description ? data.description.value : '',
+			},
+			geometry: {
+				type: 'Point',
+				coordinates: coordinates,
+			},
+		});
 	}
 
 	async function fetchDataFromWikipedia(articleTitle) {
@@ -173,6 +285,16 @@
 
 	function closeSidebar() {
 		document.getElementById('sidebar').style.right = '-300px';
+		currentBattle = {
+			title: '',
+			data: '',
+			startDate: '',
+			endDate: '',
+			casualties: '',
+			description: '',
+			image: '',
+			link: '',
+		};
 	}
 </script>
 
@@ -295,7 +417,7 @@
 		border-radius: 50%;
 		width: 120px;
 		height: 120px;
-		animation: spin 1s linear infinite;
+		animation: spin 1s ease-in infinite;
 	}
 
 	@keyframes spin {
