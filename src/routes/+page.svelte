@@ -2,6 +2,9 @@
 	import mapboxgl from 'mapbox-gl';
 	import '../../node_modules/mapbox-gl/dist/mapbox-gl.css';
 	import { onMount, onDestroy } from 'svelte';
+	import doesNotContainPattern from '../utils/stringNotContainPattern';
+	import convertDate from '../utils/convertDate';
+	import extractCoordinates from '../utils/extractCoordinates';
 
 	let map;
 	let loading = true;
@@ -13,7 +16,7 @@
 		casualties: '',
 		description: '',
 		image: '',
-		partOf: '',
+		link: '',
 	};
 
 	onMount(() => {
@@ -79,20 +82,6 @@
 		}
 	}
 
-	function extractCoordinates(input) {
-		// Match the numbers using a regular expression
-		const matches = input.match(/-?\d+\.\d+/g);
-
-		// Check if there are at least two matches (latitude and longitude)
-		if (matches && matches.length >= 2) {
-			const latitude = parseFloat(matches[0]);
-			const longitude = parseFloat(matches[1]);
-			return [latitude, longitude];
-		} else {
-			return null; // Return null or handle the error as needed
-		}
-	}
-
 	function addMarker(data) {
 		const el = document.createElement('div');
 		el.className = 'marker';
@@ -109,10 +98,10 @@
 				casualties: data.casualties ? data.casualties.value : '',
 				description: data.description ? data.description.value : '',
 				image: data.image ? data.image.value : '',
-				partOf: data.partOf ? data.partOf.value : '',
 			};
-			console.log(currentBattle);
-			console.log(data);
+			//get data from wiki api replace spaces with underscores
+			fetchDataFromWikipedia(data.battleLabel.value.replace(/ /g, '_'));
+
 			document.getElementById('sidebar').style.right = '0';
 		});
 
@@ -124,18 +113,43 @@
 		}
 	}
 
-	function doesNotContainPattern(inputString) {
-		const patternToExclude = /Q\d+/;
-		return !patternToExclude.test(inputString);
-	}
+	async function fetchDataFromWikipedia(articleTitle) {
+		// Replace with the Wikipedia API endpoint
+		const wikipediaAPI = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|info&titles=${encodeURIComponent(
+			articleTitle
+		)}&exintro=1&inprop=url&origin=*`;
 
-	function convertDate(date) {
-		//convert date to April 1, 2020 format
-		const dateObj = new Date(date);
-		const month = dateObj.toLocaleString('default', { month: 'long' });
-		const day = dateObj.getDate();
-		const year = dateObj.getFullYear();
-		return `${month} ${day}, ${year}`;
+		// Make a GET request to the Wikipedia API
+		fetch(wikipediaAPI)
+			.then((response) => {
+				if (!response.ok) {
+					throw new Error('Network response was not ok');
+				}
+				return response.json();
+			})
+			.then((data) => {
+				const pages = data.query.pages;
+				const firstPageId = Object.keys(pages)[0];
+				const article = pages[firstPageId];
+				const articleContent = article.extract;
+				const articleLink = article.fullurl;
+
+				//parse article content and remove html tags
+				const parser = new DOMParser();
+				const parsedArticleContent = parser.parseFromString(articleContent, 'text/html');
+				const articleContentWithoutTags = parsedArticleContent.body.textContent || '';
+
+				if (articleContent && articleLink) {
+					// You can do something with the article content and link here
+					currentBattle.description = articleContentWithoutTags;
+					currentBattle.link = articleLink;
+				} else {
+					console.log('Article not found');
+				}
+			})
+			.catch((error) => {
+				console.error('Error:', error);
+			});
 	}
 
 	function closeSidebar() {
@@ -157,25 +171,22 @@
 		</div>
 	{:else}
 		<div class="image-container">
-			<img src="https://placehold.jp/30/dd6699/ffffff/300x200.png?text=no+image" alt={currentBattle.title} ariaclass="image" class="image" />
+			<img src="https://placehold.jp/30/d3d3d3/ffffff/300x200.png?text=no+image" alt={currentBattle.title} ariaclass="image" class="image" />
 		</div>
 	{/if}
 	<h2 class="title">{currentBattle.title}</h2>
 	{#if currentBattle.startDate}
 		{#if currentBattle.endDate}
-			<p class="date">Date: {currentBattle.startDate} - {currentBattle.endDate}</p>
+			<p class="date">{currentBattle.startDate} - {currentBattle.endDate}</p>
 		{:else}
-			<p class="date">Date: {currentBattle.startDate}</p>
+			<p class="date">{currentBattle.startDate}</p>
 		{/if}
 	{/if}
-	{#if currentBattle.partOf}
-		<p class="partOf">Part of: {currentBattle.partOf}</p>
-	{/if}
-	{#if currentBattle.casualties}
-		<p class="casualties">Number of deaths: {currentBattle.casualties}</p>
+	{#if currentBattle.link}
+		<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Article in Wikipedia</a>
 	{/if}
 	{#if currentBattle.description}
-		<p class="description">Description: {currentBattle.description}</p>
+		<p class="description">{currentBattle.description}</p>
 	{/if}
 </div>
 
@@ -201,13 +212,13 @@
 
 	.image-container {
 		width: 100%;
+		max-height: fit-content;
 		min-height: 300px;
-		max-height: 300px;
 		display: flex;
 		justify-content: center;
 	}
 	.image {
-		width: 100%;
+		width: auto;
 		max-height: 300px;
 	}
 
@@ -225,6 +236,34 @@
 		background-color: transparent;
 		cursor: pointer;
 		line-height: 30px;
+	}
+
+	.title {
+		font-size: 20px;
+		margin: 10px 0px 5px;
+		padding: 10px;
+		color: #111;
+	}
+
+	.date {
+		font-size: 14px;
+		margin: 10px 0 0;
+		padding: 10px;
+		color: #111;
+	}
+
+	.description {
+		font-size: 14px;
+		margin: 10px 0 20px;
+		padding: 10px;
+		color: #111;
+	}
+
+	.link {
+		font-size: 14px;
+		margin: 0;
+		padding: 10px;
+		color: darkslategray;
 	}
 
 	.loader-container {
