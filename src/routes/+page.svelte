@@ -5,6 +5,7 @@
 	import doesNotContainPattern from '../utils/stringNotContainPattern';
 	import convertDate from '../utils/convertDate';
 	import extractCoordinates from '../utils/extractCoordinates';
+	import fetchBattlesData from '../utils/fetchBattlesData';
 
 	let map;
 	let loading = true;
@@ -63,8 +64,6 @@
 	function addLayers() {
 		map.addSource('battles', {
 			type: 'geojson',
-			// Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-			// from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
 			data: battlesGeoJson,
 			cluster: true,
 			clusterMaxZoom: 14, // Max zoom to cluster points on
@@ -79,10 +78,9 @@
 			paint: {
 				// Use step expressions (https://docs.mapbox.com/style-spec/reference/expressions/#step)
 				// with three steps to implement three types of circles:
-				//   * Blue, 20px circles when point count is less than 100
-				//   * Yellow, 30px circles when point count is between 100 and 750
-				//   * Pink, 40px circles when point count is greater than or equal to 750
-				'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 100, '#f1f075', 750, '#f28cb1'],
+				// steps should have color different color for different number of points
+				// colors should be orange, yellow and red
+				'circle-color': ['step', ['get', 'point_count'], '#ffb09c', 100, '#ee2400', 750, '#900000'],
 				'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 750, 40],
 			},
 		});
@@ -105,10 +103,10 @@
 			source: 'battles',
 			filter: ['!', ['has', 'point_count']],
 			paint: {
-				'circle-color': '#11b4da',
+				'circle-color': '#ffb09c',
 				'circle-radius': 4,
 				'circle-stroke-width': 1,
-				'circle-stroke-color': '#fff',
+				'circle-stroke-color': '#900000',
 			},
 		});
 
@@ -145,66 +143,14 @@
 				image: e.features[0].properties.image,
 			};
 			fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
-
+			map.easeTo({
+				center: coordinates,
+			});
 			document.getElementById('sidebar').style.right = '0';
 		});
-	}
-
-	async function fetchBattlesData() {
-		const sparqlQuery = `
-		SELECT ?battle ?battleLabel ?date ?startDate ?endDate ?coordinates ?casualties ?image ?partOf
-		WHERE {
-				?battle wdt:P31 wd:Q178561.
-				OPTIONAL { ?battle wdt:P585 ?date. }
-				OPTIONAL { ?battle wdt:P580 ?startDate. }
-				OPTIONAL { ?battle wdt:P582 ?endDate. }
-				OPTIONAL { ?battle wdt:P625 ?coordinates. }
-				OPTIONAL { ?battle wdt:P1120 ?casualties. }
-				OPTIONAL { ?battle wdt:P18 ?image. }
-				OPTIONAL { ?battle wdt:P361 ?partOf. }
-				SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-		}
-	`;
-
-		const endpoint = 'https://query.wikidata.org/sparql';
-		const url = endpoint + '?query=' + encodeURIComponent(sparqlQuery) + '&format=json';
-
-		try {
-			const response = await fetch(url, { method: 'GET' });
-			if (!response.ok) {
-				throw new Error(`HTTP error! Status: ${response.status}`);
-			}
-
-			const data = await response.json();
-			return data;
-		} catch (error) {
-			console.error('Error fetching data:', error);
-		}
 	}
 
 	function addMarker(data) {
-		const el = document.createElement('div');
-		el.className = 'marker';
-		el.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
-		el.style.width = '8px';
-		el.style.height = '8px';
-		el.style.borderRadius = '50%';
-		el.addEventListener('click', () => {
-			currentBattle = {
-				title: data.battleLabel.value,
-				date: data.date ? convertDate(data.date.value) : '',
-				startDate: data.startDate ? convertDate(data.startDate.value) : '',
-				endDate: data.endDate ? convertDate(data.endDate.value) : '',
-				casualties: data.casualties ? data.casualties.value : '',
-				description: data.description ? data.description.value : '',
-				image: data.image ? data.image.value : '',
-			};
-			//get data from wiki api replace spaces with underscores
-			fetchDataFromWikipedia(data.battleLabel.value.replace(/ /g, '_'));
-
-			document.getElementById('sidebar').style.right = '0';
-		});
-
 		const coordinates = extractCoordinates(data.coordinates.value);
 		if (coordinates) {
 			//check if battleLabel is already in battleLabelsArray
