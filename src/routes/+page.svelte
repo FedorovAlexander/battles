@@ -21,6 +21,7 @@
 	};
 
 	let openSidebar = false;
+	let mobile = false;
 	let markersCoordinatesArray = [];
 	let battleLabelsArray = [];
 	let battlesGeoJson = {
@@ -31,10 +32,11 @@
 	onMount(() => {
 		const mapboxkey = 'pk.eyJ1IjoiYWxleDIyNDAiLCJhIjoiY2xvMDNjYjFnMTRycDJubzZlc3NnbG56byJ9.fVFXHiJm2WS5M33-4gH20g';
 		mapboxgl.accessToken = mapboxkey;
+		mobile = window.innerWidth < 600 ? true : false;
 
 		map = new mapboxgl.Map({
 			container: 'map',
-			style: 'mapbox://styles/mapbox/dark-v11',
+			style: 'mapbox://styles/alex2240/ckg7oegup5r8k1as4w1ytsrip',
 			center: [10.451526, 51.165691],
 			zoom: 3.5,
 		});
@@ -105,7 +107,7 @@
 			filter: ['!', ['has', 'point_count']],
 			paint: {
 				'circle-color': '#ffb09c',
-				'circle-radius': 4,
+				'circle-radius': 8,
 				'circle-stroke-width': 1,
 				'circle-stroke-color': '#900000',
 			},
@@ -146,6 +148,13 @@
 			fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
 			map.easeTo({
 				center: coordinates,
+				//calculate padding. Should be in the center of the top half of the screen if screen is less than 600px
+				padding: {
+					bottom: mobile ? window.innerHeight / 2 : 0,
+					top: 0,
+					left: 0,
+					right: mobile ? 0 : (window.innerWidth - 300) / 2,
+				},
 			});
 			openSidebar = true;
 		});
@@ -283,6 +292,7 @@
 	}
 
 	#sidebar {
+		/* box-sizing: border-box; */
 		font-family: Arial, Helvetica, sans-serif;
 		position: absolute;
 		top: 0;
@@ -292,6 +302,7 @@
 		background-color: #fff;
 		overflow: auto;
 		transition: right 0.3s ease-in-out;
+		padding-bottom: 30px;
 	}
 
 	#sidebar.open {
@@ -303,7 +314,7 @@
 			right: 0;
 			left: 0;
 			top: auto;
-			bottom: -45%;
+			bottom: calc(-45% - 30px);
 			width: 100%;
 			height: 45%;
 			transition: bottom 0.3s ease-in-out;
