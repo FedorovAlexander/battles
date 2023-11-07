@@ -1,4 +1,4 @@
-# Project Name: Historical Battles Atlas
+# Historical Battles
 
 ## Overview
 
