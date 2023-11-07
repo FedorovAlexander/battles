@@ -41,6 +41,8 @@
 			zoom: 3.5,
 		});
 
+		map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
 		map.on('load', () => {
 			fetchBattlesData().then((data) => {
 				data.results.bindings.forEach((battle) => {
