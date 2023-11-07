@@ -302,6 +302,7 @@
 	}
 	.image {
 		width: auto;
+		max-width: 100%;
 		max-height: 300px;
 	}
 
