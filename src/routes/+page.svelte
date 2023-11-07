@@ -48,13 +48,14 @@
 						if (doesNotContainPattern(battle.battleLabel.value)) {
 							addMarker(battle);
 						}
+
 					}
 					loading = false;
 				});
+				setTimeout(() => {
+						addLayers();
+				}, 1000);
 			});
-			setTimeout(() => {
-				addLayers();
-			}, 1000);
 		});
 	});
 
@@ -177,8 +178,6 @@
 					markersCoordinatesArray.push(coordinates[0]);
 					pushGeoJson(data, coordinates);
 				}
-			} else {
-				console.log('battle already exist');
 			}
 		}
 	}
