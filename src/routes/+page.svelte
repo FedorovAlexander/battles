@@ -138,6 +138,7 @@
 			while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
 				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 			}
+
 			//open sidebar
 			currentBattle = {
 				title: e.features[0].properties.title,
@@ -263,25 +264,28 @@
 <div id="map" />
 <div id="sidebar" class:open={openSidebar}>
 	<button class="close" on:click={closeSidebar}>&#128473;</button>
-	{#if currentBattle.image}
-		<div class="image-container">
-			<img src={currentBattle.image} alt={currentBattle.title} ariaclass="image" class="image" />
-		</div>
-	{/if}
-	<h2 class="title">{currentBattle.title}</h2>
-	{#if currentBattle.startDate}
-		{#if currentBattle.endDate}
-			<p class="date">{currentBattle.startDate} - {currentBattle.endDate}</p>
-		{:else}
-			<p class="date">{currentBattle.startDate}</p>
+
+	<div class="sidebar-content">
+		{#if currentBattle.image}
+			<div class="image-container">
+				<img src={currentBattle.image} alt={currentBattle.title} ariaclass="image" class="image" />
+			</div>
 		{/if}
-	{/if}
-	{#if currentBattle.link}
-		<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Wikipedia &#x1f517;</a>
-	{/if}
-	{#if currentBattle.description}
-		<p class="description">{currentBattle.description}</p>
-	{/if}
+		<h2 class="title">{currentBattle.title}</h2>
+		{#if currentBattle.startDate}
+			{#if currentBattle.endDate}
+				<p class="date">{currentBattle.startDate} - {currentBattle.endDate}</p>
+			{:else}
+				<p class="date">{currentBattle.startDate}</p>
+			{/if}
+		{/if}
+		{#if currentBattle.link}
+			<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Wikipedia &#x1f517;</a>
+		{/if}
+		{#if currentBattle.description}
+			<p class="description">{currentBattle.description}</p>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -293,7 +297,6 @@
 	}
 
 	#sidebar {
-		/* box-sizing: border-box; */
 		font-family: Arial, Helvetica, sans-serif;
 		position: absolute;
 		top: 0;
@@ -304,6 +307,8 @@
 		overflow: auto;
 		transition: right 0.3s ease-in-out;
 		padding-bottom: 30px;
+		height: 100%;
+		overflow: hidden;
 	}
 
 	#sidebar.open {
@@ -324,6 +329,11 @@
 		#sidebar.open {
 			bottom: 0;
 		}
+	}
+
+	.sidebar-content {
+		height: 100%;
+		overflow: auto;
 	}
 
 	.image-container {
