@@ -6,6 +6,7 @@
 	import convertDate from '../utils/convertDate';
 	import extractCoordinates from '../utils/extractCoordinates';
 	import fetchBattlesData from '../utils/fetchBattlesData';
+	import closeIcon from "$lib/assets/close.png"
 
 	let map;
 	let loading = true;
@@ -263,8 +264,9 @@
 {/if}
 <div id="map" />
 <div id="sidebar" class:open={openSidebar}>
-	<button class="close" on:click={closeSidebar}>&#128473;</button>
-
+	<button class="close" on:click={closeSidebar}>
+		<img src={closeIcon} alt="close" class="close"/>
+	</button>
 	<div class="sidebar-content">
 		{#if currentBattle.image}
 			<div class="image-container">
@@ -353,16 +355,14 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		width: 30px;
-		height: 30px;
-		font-size: 30px;
-		margin: 0;
+		width: 24px;
+		height: 24px;
+		margin: 3px;
 		padding: 0;
 		color: lightgray !important;
 		border: none;
 		background-color: transparent;
 		cursor: pointer;
-		line-height: 30px;
 	}
 
 	.title {
