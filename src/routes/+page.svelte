@@ -20,6 +20,7 @@
 		link: '',
 	};
 
+	let openSidebar = false;
 	let markersCoordinatesArray = [];
 	let battleLabelsArray = [];
 	let battlesGeoJson = {
@@ -146,7 +147,7 @@
 			map.easeTo({
 				center: coordinates,
 			});
-			document.getElementById('sidebar').style.right = '0';
+			openSidebar = true;
 		});
 	}
 
@@ -230,7 +231,7 @@
 	}
 
 	function closeSidebar() {
-		document.getElementById('sidebar').style.right = '-300px';
+		openSidebar = false;
 		currentBattle = {
 			title: '',
 			data: '',
@@ -250,7 +251,7 @@
 	</div>
 {/if}
 <div id="map" />
-<div id="sidebar">
+<div id="sidebar" class:open={openSidebar}>
 	<button class="close" on:click={closeSidebar}>&#128473;</button>
 	{#if currentBattle.image}
 		<div class="image-container">
@@ -291,6 +292,26 @@
 		background-color: #fff;
 		overflow: auto;
 		transition: right 0.3s ease-in-out;
+	}
+
+	#sidebar.open {
+		right: 0;
+	}	
+
+	@media only screen and (max-width: 600px) {
+		#sidebar {
+			right: 0;
+			left: 0;
+			top: auto;
+			bottom: -45%;
+			width: 100%;
+			height: 45%;
+			transition: bottom 0.3s ease-in-out;
+		}
+
+		#sidebar.open {
+			bottom: 0;
+		}
 	}
 
 	.image-container {
