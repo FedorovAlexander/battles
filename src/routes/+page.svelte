@@ -112,7 +112,7 @@
 			paint: {
 				'circle-color': '#ffb09c',
 				'circle-radius': 8,
-				'circle-stroke-width': 1,
+				'circle-stroke-width': 2,
 				'circle-stroke-color': '#900000',
 			},
 		});
@@ -158,7 +158,7 @@
 					bottom: mobile ? window.innerHeight / 2 : 0,
 					top: 0,
 					left: 0,
-					right: mobile ? 0 : (window.innerWidth - 300) / 2,
+					right: mobile ? 0 : (window.innerWidth - 150) / 2,
 				},
 			});
 			openSidebar = true;
