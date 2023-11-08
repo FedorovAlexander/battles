@@ -311,8 +311,7 @@
 		padding-bottom: 30px;
 		height: 100%;
 		overflow: hidden;
-		border-top-left-radius: 10px;
-		border-top-right-radius: 10px;
+
 	}
 
 	#sidebar.open {
@@ -328,6 +327,8 @@
 			width: 100%;
 			height: 45%;
 			transition: bottom 0.3s ease-in-out;
+			border-top-left-radius: 10px;
+			border-top-right-radius: 10px;
 		}
 
 		#sidebar.open {
