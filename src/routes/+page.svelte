@@ -6,7 +6,7 @@
 	import convertDate from '../utils/convertDate';
 	import extractCoordinates from '../utils/extractCoordinates';
 	import fetchBattlesData from '../utils/fetchBattlesData';
-	import closeIcon from "$lib/assets/close.png"
+	import closeIcon from '$lib/assets/close.png';
 
 	let map;
 	let loading = true;
@@ -51,12 +51,11 @@
 						if (doesNotContainPattern(battle.battleLabel.value)) {
 							addMarker(battle);
 						}
-
 					}
 					loading = false;
 				});
 				setTimeout(() => {
-						addLayers();
+					addLayers();
 				}, 1000);
 			});
 		});
@@ -73,8 +72,8 @@
 			type: 'geojson',
 			data: battlesGeoJson,
 			cluster: true,
-			clusterMaxZoom: 14, // Max zoom to cluster points on
-			clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+			clusterMaxZoom: 14,
+			clusterRadius: 50,
 		});
 
 		map.addLayer({
@@ -83,10 +82,6 @@
 			source: 'battles',
 			filter: ['has', 'point_count'],
 			paint: {
-				// Use step expressions (https://docs.mapbox.com/style-spec/reference/expressions/#step)
-				// with three steps to implement three types of circles:
-				// steps should have color different color for different number of points
-				// colors should be orange, yellow and red
 				'circle-color': ['step', ['get', 'point_count'], '#ffb09c', 100, '#ee2400', 750, '#900000'],
 				'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 750, 40],
 			},
@@ -140,7 +135,6 @@
 				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 			}
 
-			//open sidebar
 			currentBattle = {
 				title: e.features[0].properties.title,
 				date: e.features[0].properties.date,
@@ -153,7 +147,6 @@
 			fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
 			map.easeTo({
 				center: coordinates,
-				//calculate padding. Should be in the center of the top half of the screen if screen is less than 600px
 				padding: {
 					bottom: mobile ? window.innerHeight / 2 : 0,
 					top: 0,
@@ -168,12 +161,9 @@
 	function addMarker(data) {
 		const coordinates = extractCoordinates(data.coordinates.value);
 		if (coordinates) {
-			//check if battleLabel is already in battleLabelsArray
 			if (!battleLabelsArray.includes(data.battleLabel.value)) {
-				//check if coordinates are already in markersCoordinatesArray
 				battleLabelsArray.push(data.battleLabel.value);
 				if (markersCoordinatesArray.includes(coordinates[0])) {
-					//if coordinates are already in markersCoordinatesArray, add a small random number to the coordinates
 					coordinates[0] += Math.random() * 0.1;
 					coordinates[1] += Math.random() * 0.1;
 					markersCoordinatesArray.push(coordinates[0]);
@@ -204,12 +194,10 @@
 	}
 
 	async function fetchDataFromWikipedia(articleTitle) {
-		// Replace with the Wikipedia API endpoint
 		const wikipediaAPI = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|info&titles=${encodeURIComponent(
 			articleTitle
 		)}&exintro=1&inprop=url&origin=*`;
 
-		// Make a GET request to the Wikipedia API
 		fetch(wikipediaAPI)
 			.then((response) => {
 				if (!response.ok) {
@@ -223,14 +211,11 @@
 				const article = pages[firstPageId];
 				const articleContent = article.extract;
 				const articleLink = article.fullurl;
-
-				//parse article content and remove html tags
 				const parser = new DOMParser();
 				const parsedArticleContent = parser.parseFromString(articleContent, 'text/html');
 				const articleContentWithoutTags = parsedArticleContent.body.textContent || '';
 
 				if (articleContent && articleLink) {
-					// You can do something with the article content and link here
 					currentBattle.description = articleContentWithoutTags;
 					currentBattle.link = articleLink;
 				} else {
@@ -262,16 +247,20 @@
 		<div class="loader" />
 	</div>
 {/if}
-<div id="map" />
-<div id="sidebar" class:open={openSidebar}>
-	<button class="close" on:click={closeSidebar}>
-		<img src={closeIcon} alt="close" class="close"/>
-	</button>
-	<div class="sidebar-content">
+<section id="map"></section>
+
+<aside id="sidebar" class:open={openSidebar}>
+	<header>
+		<button class="close" on:click={closeSidebar} aria-label="Close sidebar">
+			<img src={closeIcon} alt="Close sidebar" class="close" />
+		</button>
+	</header>
+	<article class="sidebar-content">
 		{#if currentBattle.image}
-			<div class="image-container">
-				<img src={currentBattle.image} alt={currentBattle.title} ariaclass="image" class="image" />
-			</div>
+			<figure class="image-container">
+				<img src={currentBattle.image} alt={currentBattle.title} class="image" />
+				<figcaption class="image-caption">{currentBattle.title}</figcaption>
+			</figure>
 		{/if}
 		<h2 class="title">{currentBattle.title}</h2>
 		{#if currentBattle.startDate}
@@ -282,143 +271,14 @@
 			{/if}
 		{/if}
 		{#if currentBattle.link}
-			<a href={currentBattle.link} target="”_blank”" noopener noreferrer class="link">Wikipedia &#x1f517;</a>
+			<a href={currentBattle.link} target="_blank" rel="noopener noreferrer" class="link">Wikipedia &#x1f517;</a>
 		{/if}
 		{#if currentBattle.description}
 			<p class="description">{currentBattle.description}</p>
 		{/if}
-	</div>
-</div>
+	</article>
+</aside>
 
 <style>
-	#map {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 100%;
-	}
-
-	#sidebar {
-		font-family: Arial, Helvetica, sans-serif;
-		position: absolute;
-		top: 0;
-		right: -300px;
-		width: 300px;
-		height: 100%;
-		background-color: #fff;
-		overflow: auto;
-		transition: right 0.3s ease-in-out;
-		padding-bottom: 30px;
-		height: 100%;
-		overflow: hidden;
-
-	}
-
-	#sidebar.open {
-		right: 0;
-	}	
-
-	@media only screen and (max-width: 600px) {
-		#sidebar {
-			right: 0;
-			left: 0;
-			top: auto;
-			bottom: calc(-45% - 30px);
-			width: 100%;
-			height: 45%;
-			transition: bottom 0.3s ease-in-out;
-			border-top-left-radius: 10px;
-			border-top-right-radius: 10px;
-		}
-
-		#sidebar.open {
-			bottom: 0;
-		}
-	}
-
-	.sidebar-content {
-		height: 100%;
-		overflow: auto;
-	}
-
-	.image-container {
-		width: 100%;
-		max-height: fit-content;
-		min-height: fit-content;
-		display: flex;
-		justify-content: center;
-	}
-	.image {
-		width: auto;
-		max-width: 100%;
-		max-height: 300px;
-	}
-
-	.close {
-		position: absolute;
-		top: 0;
-		right: 0;
-		width: 24px;
-		height: 24px;
-		margin: 3px;
-		padding: 0;
-		color: lightgray !important;
-		border: none;
-		background-color: transparent;
-		cursor: pointer;
-	}
-
-	.title {
-		font-size: 20px;
-		margin: 10px 0px 5px;
-		padding: 10px;
-		color: #111;
-	}
-
-	.date {
-		font-size: 14px;
-		margin: 10px 0 0;
-		padding: 10px;
-		color: #111;
-	}
-
-	.description {
-		font-size: 14px;
-		margin: 10px 0 20px;
-		padding: 10px;
-		color: #111;
-	}
-
-	.link {
-		font-size: 14px;
-		margin: 0;
-		padding: 10px;
-		color: darkslategray;
-		text-decoration: none;
-		font-weight: 500;
-	}
-
-	.loader-container {
-		position: absolute;
-		z-index: 100;
-		top: calc(50% - 60px);
-		left: calc(50% - 60px);
-	}
-	.loader {
-		border: 16px solid #f3f3f3; /* Light grey */
-		border-top: 16px solid #3498db; /* Blue */
-		border-radius: 50%;
-		width: 120px;
-		height: 120px;
-		animation: spin 1s ease-in infinite;
-	}
-
-	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
-			transform: rotate(360deg);
-		}
-	}
+	@import './+page.css';
 </style>
