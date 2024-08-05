@@ -1,28 +1,21 @@
 <script>
 	import mapboxgl from 'mapbox-gl';
-	import '../../node_modules/mapbox-gl/dist/mapbox-gl.css';
+	import 'mapbox-gl/dist/mapbox-gl.css';
 	import { onMount, onDestroy } from 'svelte';
 	import doesNotContainPattern from '../utils/stringNotContainPattern';
 	import convertDate from '../utils/convertDate';
 	import extractCoordinates from '../utils/extractCoordinates';
 	import fetchBattlesData from '../utils/fetchBattlesData';
-	import closeIcon from '$lib/assets/close.png';
+	import closeIcon from '$lib/assets/close.svg';
+	import COLOR_CONSTANTS from '../utils/colorConstants';
+	import MAPBOX_CONFIG from '../utils/mapboxConfig';
 
 	let map;
 	let loading = true;
-	let currentBattle = {
-		title: '',
-		data: '',
-		startDate: '',
-		endDate: '',
-		casualties: '',
-		description: '',
-		image: '',
-		link: '',
-	};
-
+	let currentBattle = getDefaultBattle();
 	let openSidebar = false;
 	let mobile = false;
+	let mobileBreakpoint = 600;
 	let markersCoordinatesArray = [];
 	let battleLabelsArray = [];
 	let battlesGeoJson = {
@@ -30,50 +23,51 @@
 		features: [],
 	};
 
-	onMount(() => {
-		const mapboxkey = 'pk.eyJ1IjoiYWxleDIyNDAiLCJhIjoiY2xvMDNjYjFnMTRycDJubzZlc3NnbG56byJ9.fVFXHiJm2WS5M33-4gH20g';
-		mapboxgl.accessToken = mapboxkey;
-		mobile = window.innerWidth < 600 ? true : false;
+	onMount(async () => {
+		mapboxgl.accessToken = MAPBOX_CONFIG.accessToken;
 
-		map = new mapboxgl.Map({
-			container: 'map',
-			style: 'mapbox://styles/alex2240/ckg7oegup5r8k1as4w1ytsrip',
-			center: [10.451526, 51.165691],
-			zoom: 3.5,
-		});
+		mobile = window?.innerWidth < mobileBreakpoint;
 
-		map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+		initializeMap();
 
-		map.on('load', () => {
-			fetchBattlesData().then((data) => {
-				data.results.bindings.forEach((battle) => {
-					if (battle.coordinates) {
-						if (doesNotContainPattern(battle.battleLabel.value)) {
-							addMarker(battle);
-						}
-					}
-					loading = false;
-				});
-				setTimeout(() => {
-					addLayers();
-				}, 1000);
-			});
+		map.on('load', async () => {
+			const data = await fetchBattlesData();
+			processBattleData(data.results.bindings);
+			loading = false;
+			setTimeout(addLayers, 1000);
 		});
 	});
 
 	onDestroy(() => {
-		if (map) {
-			map.remove();
-		}
+		map?.remove();
 	});
+
+	function initializeMap() {
+		map = new mapboxgl.Map({
+			container: 'map',
+			style: MAPBOX_CONFIG.style,
+			center: MAPBOX_CONFIG.initialCenter,
+			zoom: MAPBOX_CONFIG.initialZoom,
+		});
+
+		map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+	}
+
+	async function processBattleData(battles) {
+		for (const battle of battles) {
+			if (battle.coordinates && doesNotContainPattern(battle.battleLabel.value)) {
+				addMarker(battle);
+			}
+		}
+	}
 
 	function addLayers() {
 		map.addSource('battles', {
 			type: 'geojson',
 			data: battlesGeoJson,
 			cluster: true,
-			clusterMaxZoom: 14,
-			clusterRadius: 50,
+			clusterMaxZoom: MAPBOX_CONFIG.clusterMaxZoom,
+			clusterRadius: MAPBOX_CONFIG.clusterRadius,
 		});
 
 		map.addLayer({
@@ -82,7 +76,15 @@
 			source: 'battles',
 			filter: ['has', 'point_count'],
 			paint: {
-				'circle-color': ['step', ['get', 'point_count'], '#ffb09c', 100, '#ee2400', 750, '#900000'],
+				'circle-color': [
+					'step',
+					['get', 'point_count'],
+					COLOR_CONSTANTS.markerPointLight,
+					MAPBOX_CONFIG.clusterFirstStep,
+					COLOR_CONSTANTS.markerPointDark,
+					MAPBOX_CONFIG.clusterSecondStep,
+					COLOR_CONSTANTS.markerPointDarkest,
+				],
 				'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 750, 40],
 			},
 		});
@@ -94,8 +96,8 @@
 			filter: ['has', 'point_count'],
 			layout: {
 				'text-field': ['get', 'point_count_abbreviated'],
-				'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-				'text-size': 12,
+				'text-font': MAPBOX_CONFIG.textFont,
+				'text-size': MAPBOX_CONFIG.textSize,
 			},
 		});
 
@@ -105,75 +107,80 @@
 			source: 'battles',
 			filter: ['!', ['has', 'point_count']],
 			paint: {
-				'circle-color': '#ffb09c',
-				'circle-radius': 8,
-				'circle-stroke-width': 2,
-				'circle-stroke-color': '#900000',
+				'circle-color': COLOR_CONSTANTS.markerPointLight,
+				'circle-radius': MAPBOX_CONFIG.pointCircleRadius,
+				'circle-stroke-width': MAPBOX_CONFIG.pointCircleStrokeWidth,
+				'circle-stroke-color': COLOR_CONSTANTS.markerPointDarkest,
 			},
 		});
 
-		// inspect a cluster on click
-		map.on('click', 'clusters', (e) => {
-			const features = map.queryRenderedFeatures(e.point, {
-				layers: ['clusters'],
-			});
-			const clusterId = features[0].properties.cluster_id;
-			map.getSource('battles').getClusterExpansionZoom(clusterId, (err, zoom) => {
-				if (err) return;
+		map.on('click', 'clusters', handleClusterClick);
+		map.on('click', 'unclustered-point', handleUnclusteredPointClick);
+	}
 
-				map.easeTo({
-					center: features[0].geometry.coordinates,
-					zoom: zoom,
-				});
-			});
-		});
+	function handleClusterClick(e) {
+		const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+		const clusterId = features[0].properties.cluster_id;
 
-		map.on('click', 'unclustered-point', (e) => {
-			const coordinates = e.features[0].geometry.coordinates.slice();
+		map.getSource('battles').getClusterExpansionZoom(clusterId, (err, zoom) => {
+			if (err) return;
 
-			while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-			}
-
-			currentBattle = {
-				title: e.features[0].properties.title,
-				date: e.features[0].properties.date,
-				startDate: e.features[0].properties.startDate,
-				endDate: e.features[0].properties.endDate,
-				casualties: e.features[0].properties.casualties,
-				description: e.features[0].properties.description,
-				image: e.features[0].properties.image,
-			};
-			fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
 			map.easeTo({
-				center: coordinates,
-				padding: {
-					bottom: mobile ? window.innerHeight / 2 : 0,
-					top: 0,
-					left: 0,
-					right: mobile ? 0 : (window.innerWidth - 150) / 2,
-				},
+				center: features[0].geometry.coordinates,
+				zoom: zoom,
 			});
-			openSidebar = true;
 		});
+	}
+
+	async function handleUnclusteredPointClick(e) {
+		const coordinates = adjustCoordinates(e.features[0].geometry.coordinates, e.lngLat.lng);
+
+		currentBattle = extractBattleData(e.features[0].properties);
+		await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+
+		map.easeTo({
+			center: coordinates,
+			padding: {
+				bottom: mobile ? window.innerHeight / 2 : 0,
+				top: 0,
+				left: 0,
+				right: mobile ? 0 : (window.innerWidth - 150) / 2,
+			},
+		});
+
+		openSidebar = true;
+	}
+
+	function adjustCoordinates(coordinates, lng) {
+		while (Math.abs(lng - coordinates[0]) > 180) {
+			coordinates[0] += lng > coordinates[0] ? 360 : -360;
+		}
+		return coordinates;
+	}
+
+	function extractBattleData(properties) {
+		return {
+			title: properties.title,
+			date: properties.date,
+			startDate: properties.startDate,
+			endDate: properties.endDate,
+			casualties: properties.casualties,
+			description: properties.description,
+			image: properties.image,
+		};
 	}
 
 	function addMarker(data) {
 		const coordinates = extractCoordinates(data.coordinates.value);
-		if (coordinates) {
-			if (!battleLabelsArray.includes(data.battleLabel.value)) {
-				battleLabelsArray.push(data.battleLabel.value);
-				if (markersCoordinatesArray.includes(coordinates[0])) {
-					coordinates[0] += Math.random() * 0.1;
-					coordinates[1] += Math.random() * 0.1;
-					markersCoordinatesArray.push(coordinates[0]);
-					pushGeoJson(data, coordinates);
-				} else {
-					markersCoordinatesArray.push(coordinates[0]);
-					pushGeoJson(data, coordinates);
-				}
-			}
+		if (!coordinates || battleLabelsArray.includes(data.battleLabel.value)) return;
+
+		battleLabelsArray.push(data.battleLabel.value);
+		if (markersCoordinatesArray.includes(coordinates[0])) {
+			coordinates[0] += Math.random() * 0.1;
+			coordinates[1] += Math.random() * 0.1;
 		}
+		markersCoordinatesArray.push(coordinates[0]);
+		pushGeoJson(data, coordinates);
 	}
 
 	function pushGeoJson(data, coordinates) {
@@ -181,10 +188,10 @@
 			type: 'Feature',
 			properties: {
 				title: data.battleLabel.value,
-				image: data.image ? data.image.value : '',
+				image: data.image?.value || '',
 				startDate: data.startDate ? convertDate(data.startDate.value) : '',
 				endDate: data.endDate ? convertDate(data.endDate.value) : '',
-				description: data.description ? data.description.value : '',
+				description: data.description?.value || '',
 			},
 			geometry: {
 				type: 'Point',
@@ -194,42 +201,37 @@
 	}
 
 	async function fetchDataFromWikipedia(articleTitle) {
-		const wikipediaAPI = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|info&titles=${encodeURIComponent(
-			articleTitle
-		)}&exintro=1&inprop=url&origin=*`;
+		const wikipediaAPI = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|info&titles=${encodeURIComponent(articleTitle)}&exintro=1&inprop=url&origin=*`;
 
-		fetch(wikipediaAPI)
-			.then((response) => {
-				if (!response.ok) {
-					throw new Error('Network response was not ok');
-				}
-				return response.json();
-			})
-			.then((data) => {
-				const pages = data.query.pages;
-				const firstPageId = Object.keys(pages)[0];
-				const article = pages[firstPageId];
-				const articleContent = article.extract;
-				const articleLink = article.fullurl;
-				const parser = new DOMParser();
-				const parsedArticleContent = parser.parseFromString(articleContent, 'text/html');
-				const articleContentWithoutTags = parsedArticleContent.body.textContent || '';
+		try {
+			const response = await fetch(wikipediaAPI);
+			if (!response.ok) throw new Error('Network response was not ok');
 
-				if (articleContent && articleLink) {
-					currentBattle.description = articleContentWithoutTags;
-					currentBattle.link = articleLink;
-				} else {
-					console.log('Article not found');
-				}
-			})
-			.catch((error) => {
-				console.error('Error:', error);
-			});
+			const data = await response.json();
+			const article = Object.values(data.query.pages)[0];
+			const articleContent = article.extract;
+			const articleLink = article.fullurl;
+
+			const parser = new DOMParser();
+			const parsedArticleContent = parser.parseFromString(articleContent, 'text/html');
+			const articleContentWithoutTags = parsedArticleContent.body.textContent || '';
+
+			if (articleContent && articleLink) {
+				currentBattle.description = articleContentWithoutTags;
+				currentBattle.link = articleLink;
+			}
+		} catch (error) {
+			console.error('Error:', error);
+		}
 	}
 
 	function closeSidebar() {
 		openSidebar = false;
-		currentBattle = {
+		currentBattle = getDefaultBattle();
+	}
+
+	function getDefaultBattle() {
+		return {
 			title: '',
 			data: '',
 			startDate: '',
@@ -264,11 +266,12 @@
 		{/if}
 		<h2 class="title">{currentBattle.title}</h2>
 		{#if currentBattle.startDate}
-			{#if currentBattle.endDate}
-				<p class="date">{currentBattle.startDate} - {currentBattle.endDate}</p>
-			{:else}
-				<p class="date">{currentBattle.startDate}</p>
-			{/if}
+			<p class="date">
+				{currentBattle.startDate}
+				{#if currentBattle.endDate}
+					- {currentBattle.endDate}
+				{/if}
+			</p>
 		{/if}
 		{#if currentBattle.link}
 			<a href={currentBattle.link} target="_blank" rel="noopener noreferrer" class="link">Wikipedia &#x1f517;</a>
