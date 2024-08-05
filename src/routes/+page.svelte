@@ -23,6 +23,8 @@
 		features: [],
 	};
 
+	let dropdownItems = [];
+
 	onMount(async () => {
 		mapboxgl.accessToken = MAPBOX_CONFIG.accessToken;
 
@@ -49,8 +51,9 @@
 			center: MAPBOX_CONFIG.initialCenter,
 			zoom: MAPBOX_CONFIG.initialZoom,
 		});
-
-		map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+		if (!mobile) {
+			map.addControl(new mapboxgl.NavigationControl(), MAPBOX_CONFIG.navigationControlPosition);
+		}
 	}
 
 	async function processBattleData(battles) {
@@ -242,6 +245,68 @@
 			link: '',
 		};
 	}
+
+	function searchBattlesByTitle(event) {
+		dropdownItems = battlesGeoJson.features.filter((battle) => {
+			return battle.properties.title.toLowerCase().includes(event.target.value.toLowerCase());
+		});
+	}
+
+	function onSelectDropdownItem(event) {
+		const battleTitle = event.target.innerText;
+		const index = battlesGeoJson.features.findIndex((battle) => battle.properties.title === battleTitle);
+		const coordinates = battlesGeoJson.features[index].geometry.coordinates;
+
+		map.easeTo({
+			center: coordinates,
+			padding: {
+				bottom: mobile ? window.innerHeight / 2 : 0,
+				top: 0,
+				left: 0,
+				right: mobile ? 0 : (window.innerWidth - 150) / 2,
+			},
+			zoom: 10,
+		});
+
+		currentBattle = extractBattleData(battlesGeoJson.features[index].properties);
+		dropdownItems = [];
+		openSidebar = true;
+	}
+
+	function handleDropdownItemKeyEvent(event) {
+		const currentIndex = parseInt(event.target.parentElement.dataset.index);
+		let nextIndex, nextItem;
+
+		switch (event.key) {
+			case 'Enter':
+				onSelectDropdownItem(event);
+				document.querySelector('.close-button').focus();
+				break;
+
+			case 'Escape':
+				dropdownItems = [];
+				break;
+
+			case 'ArrowDown':
+				nextIndex = currentIndex + 1;
+				nextItem = document.querySelector(`[data-index="${nextIndex}"]`);
+				if (nextItem) {
+					nextItem.querySelector('button').focus();
+				}
+				break;
+
+			case 'ArrowUp':
+				nextIndex = currentIndex - 1;
+				nextItem = document.querySelector(`[data-index="${nextIndex}"]`);
+				if (nextItem) {
+					nextItem.querySelector('button').focus();
+				}
+				break;
+
+			default:
+				break;
+		}
+	}
 </script>
 
 {#if loading}
@@ -250,11 +315,27 @@
 	</div>
 {/if}
 <section id="map"></section>
+{#if !loading}
+	<div class="search">
+		<input class="search__input-field" type="text" placeholder="Search for a battle" on:keyup={searchBattlesByTitle} />
+		{#if dropdownItems.length > 0}
+			<ul class="search__dropdown-list">
+				{#each dropdownItems as { properties }, i}
+					<li class="search__dropdown-item" data-index={i}>
+						<button class="search__dropdown-button" on:click={onSelectDropdownItem} on:keyup={handleDropdownItemKeyEvent}>
+							{properties.title}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</div>
+{/if}
 
 <aside id="sidebar" class:open={openSidebar}>
 	<header>
-		<button class="close" on:click={closeSidebar} aria-label="Close sidebar">
-			<img src={closeIcon} alt="Close sidebar" class="close" />
+		<button class="close-button" on:click={closeSidebar} aria-label="Close sidebar">
+			<img class="close-icon" src={closeIcon} alt="Close sidebar" />
 		</button>
 	</header>
 	<article class="sidebar-content">
@@ -278,6 +359,11 @@
 		{/if}
 		{#if currentBattle.description}
 			<p class="description">{currentBattle.description}</p>
+		{:else}
+			<p class="description">No description available</p>
+		{/if}
+		{#if currentBattle.casualties}
+			<p class="casualties">Casualties: {currentBattle.casualties}</p>
 		{/if}
 	</article>
 </aside>

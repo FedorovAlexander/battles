@@ -11,6 +11,7 @@ const MAPBOX_CONFIG = {
 	textSize: 12,
 	pointCircleRadius: 8,
 	pointCircleStrokeWidth: 2,
+	navigationControlPosition: 'bottom-left',
 };
 
 export default MAPBOX_CONFIG;
