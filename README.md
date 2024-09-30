@@ -2,7 +2,8 @@
 
 ## Overview
 
-Historical Battles Atlas is a web application that provides an interactive and informative visualization of battles throughout human history. It uses Svelte for the frontend and Mapbox for mapping capabilities, and it sources its data from Wikidata and Wikipedia. With this project, you can explore and learn about various battles, their locations, dates, and other relevant information in a user-friendly interface.
+[Historical Battles Atlas](https://fedorovalexander.github.io/battles/) is a web application that provides an interactive and informative visualization of battles throughout human history. It uses Svelte for the frontend and Mapbox for mapping capabilities, and it sources its data from Wikidata and Wikipedia. With this project, you can explore and learn about various battles, their locations, dates, and other relevant information in a user-friendly interface.
+The result can be seen on [GitHub Pages](https://fedorovalexander.github.io/battles/).
 
 ## Features
 
