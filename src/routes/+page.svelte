@@ -16,7 +16,7 @@
 	let openSidebar = false;
 	let mobile = false;
 	let mobileBreakpoint = 600;
-	let markersCoordinatesArray = [];
+	let coordinateCounts = new Map();
 	let battleLabelsArray = [];
 	let battlesGeoJson = {
 		type: 'FeatureCollection',
@@ -178,12 +178,36 @@
 		if (!coordinates || battleLabelsArray.includes(data.battleLabel.value)) return;
 
 		battleLabelsArray.push(data.battleLabel.value);
-		if (markersCoordinatesArray.includes(coordinates[0])) {
-			coordinates[0] += Math.random() * 0.1;
-			coordinates[1] += Math.random() * 0.1;
+		const key = getCoordinateKey(coordinates);
+		const existingCount = coordinateCounts.get(key) || 0;
+		if (existingCount > 0) {
+			const jittered = getJitteredCoordinates(coordinates, existingCount);
+			coordinates[0] = jittered[0];
+			coordinates[1] = jittered[1];
 		}
-		markersCoordinatesArray.push(coordinates[0]);
+		coordinateCounts.set(key, existingCount + 1);
 		pushGeoJson(data, coordinates);
+	}
+
+	function getCoordinateKey(coords) {
+		// coords expected as [lng, lat]
+		const lng = Number.parseFloat(coords[0]).toFixed(5);
+		const lat = Number.parseFloat(coords[1]).toFixed(5);
+		return `${lng},${lat}`;
+	}
+
+	function getJitteredCoordinates(baseCoords, index) {
+		// Deterministic small spiral jitter to separate exact duplicates visually
+		const lng = baseCoords[0];
+		const lat = baseCoords[1];
+		const goldenAngle = 137.508 * (Math.PI / 180);
+		const theta = index * goldenAngle;
+		// radius in degrees (~0.003 deg ~ 300-350m); grow slowly with sqrt(index)
+		const radius = 0.003 * Math.sqrt(index);
+		const dLat = radius * Math.cos(theta);
+		const latRad = lat * Math.PI / 180;
+		const dLng = (radius * Math.sin(theta)) / Math.max(0.1, Math.cos(latRad));
+		return [lng + dLng, lat + dLat];
 	}
 
 	function pushGeoJson(data, coordinates) {
