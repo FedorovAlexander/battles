@@ -12,6 +12,7 @@
 
 	let map;
 	let loading = true;
+	let sidebarLoading = false;
 	let currentBattle = getDefaultBattle();
 	let openSidebar = false;
 	let mobile = false;
@@ -139,7 +140,15 @@
 		const coordinates = adjustCoordinates(e.features[0].geometry.coordinates, e.lngLat.lng);
 
 		currentBattle = extractBattleData(e.features[0].properties);
-		await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+		sidebarLoading = true;
+		openSidebar = true;
+		if (currentBattle.wikidataId) {
+			await fetchDataFromWikipediaViaWikidata(currentBattle.wikidataId);
+		} else {
+			// Fallback to title search if no Wikidata ID
+			await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+		}
+		sidebarLoading = false;
 
 		map.easeTo({
 			center: coordinates,
@@ -151,7 +160,6 @@
 			},
 		});
 
-		openSidebar = true;
 	}
 
 	function adjustCoordinates(coordinates, lng) {
@@ -170,6 +178,7 @@
 			casualties: properties.casualties,
 			description: properties.description,
 			image: properties.image,
+			wikidataId: properties.wikidataId,
 		};
 	}
 
@@ -210,7 +219,14 @@
 		return [lng + dLng, lat + dLat];
 	}
 
+	function extractWikidataId(battleUri) {
+		// Extract Q-id from URI like http://www.wikidata.org/entity/Q12345
+		const match = battleUri.match(/\/entity\/(Q\d+)$/);
+		return match ? match[1] : null;
+	}
+
 	function pushGeoJson(data, coordinates) {
+		const wikidataId = extractWikidataId(data.battle.value);
 		battlesGeoJson.features.push({
 			type: 'Feature',
 			properties: {
@@ -219,12 +235,38 @@
 				startDate: data.startDate ? convertDate(data.startDate.value) : '',
 				endDate: data.endDate ? convertDate(data.endDate.value) : '',
 				description: data.description?.value || '',
+				wikidataId: wikidataId || '',
 			},
 			geometry: {
 				type: 'Point',
 				coordinates: coordinates,
 			},
 		});
+	}
+
+	async function fetchDataFromWikipediaViaWikidata(wikidataId) {
+		// First, get the Wikipedia article title from Wikidata
+		try {
+			const wikidataAPI = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(wikidataId)}&props=sitelinks&format=json&origin=*`;
+			const wikidataResponse = await fetch(wikidataAPI);
+			
+			if (!wikidataResponse.ok) throw new Error('Failed to fetch from Wikidata');
+
+			const wikidataData = await wikidataResponse.json();
+			const entity = wikidataData.entities[wikidataId];
+			
+			if (entity && entity.sitelinks && entity.sitelinks.enwiki) {
+				const articleTitle = entity.sitelinks.enwiki.title;
+				await fetchDataFromWikipedia(articleTitle);
+			} else {
+				// Fallback to title search if no Wikipedia article found
+				await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+			}
+		} catch (error) {
+			console.error('Error fetching from Wikidata:', error);
+			// Fallback to title search on error
+			await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+		}
 	}
 
 	async function fetchDataFromWikipedia(articleTitle) {
@@ -236,6 +278,12 @@
 
 			const data = await response.json();
 			const article = Object.values(data.query.pages)[0];
+			
+			// Check if article exists (pageid != -1 means it exists)
+			if (article.pageid === -1) {
+				return; // Article not found
+			}
+			
 			const articleContent = article.extract;
 			const articleLink = article.fullurl;
 
@@ -276,7 +324,7 @@
 		});
 	}
 
-	function onSelectDropdownItem(event) {
+	async function onSelectDropdownItem(event) {
 		const battleTitle = event.target.innerText;
 		const index = battlesGeoJson.features.findIndex((battle) => battle.properties.title === battleTitle);
 		const coordinates = battlesGeoJson.features[index].geometry.coordinates;
@@ -293,8 +341,16 @@
 		});
 
 		currentBattle = extractBattleData(battlesGeoJson.features[index].properties);
-		dropdownItems = [];
+		sidebarLoading = true;
 		openSidebar = true;
+		if (currentBattle.wikidataId) {
+			await fetchDataFromWikipediaViaWikidata(currentBattle.wikidataId);
+		} else {
+			// Fallback to title search if no Wikidata ID
+			await fetchDataFromWikipedia(currentBattle.title.replace(/ /g, '_'));
+		}
+		sidebarLoading = false;
+		dropdownItems = [];
 	}
 
 	function handleDropdownItemKeyEvent(event) {
@@ -363,31 +419,37 @@
 		</button>
 	</header>
 	<article class="sidebar-content">
-		{#if currentBattle.image}
-			<figure class="image-container">
-				<img src={currentBattle.image} alt={currentBattle.title} class="image" />
-				<figcaption class="image-caption">{currentBattle.title}</figcaption>
-			</figure>
-		{/if}
-		<h2 class="title">{currentBattle.title}</h2>
-		{#if currentBattle.startDate}
-			<p class="date">
-				{currentBattle.startDate}
-				{#if currentBattle.endDate}
-					- {currentBattle.endDate}
-				{/if}
-			</p>
-		{/if}
-		{#if currentBattle.link}
-			<a href={currentBattle.link} target="_blank" rel="noopener noreferrer" class="link">Wikipedia &#x1f517;</a>
-		{/if}
-		{#if currentBattle.description}
-			<p class="description">{currentBattle.description}</p>
+		{#if sidebarLoading}
+			<div class="sidebar-loader-container">
+				<div class="sidebar-loader" />
+			</div>
 		{:else}
-			<p class="description">No description available</p>
-		{/if}
-		{#if currentBattle.casualties}
-			<p class="casualties">Casualties: {currentBattle.casualties}</p>
+			{#if currentBattle.image}
+				<figure class="image-container">
+					<img src={currentBattle.image} alt={currentBattle.title} class="image" />
+					<figcaption class="image-caption">{currentBattle.title}</figcaption>
+				</figure>
+			{/if}
+			<h2 class="title">{currentBattle.title}</h2>
+			{#if currentBattle.startDate}
+				<p class="date">
+					{currentBattle.startDate}
+					{#if currentBattle.endDate}
+						- {currentBattle.endDate}
+					{/if}
+				</p>
+			{/if}
+			{#if currentBattle.link}
+				<a href={currentBattle.link} target="_blank" rel="noopener noreferrer" class="link">Wikipedia &#x1f517;</a>
+			{/if}
+			{#if currentBattle.description}
+				<p class="description">{currentBattle.description}</p>
+			{:else}
+				<p class="description">No description available</p>
+			{/if}
+			{#if currentBattle.casualties}
+				<p class="casualties">Casualties: {currentBattle.casualties}</p>
+			{/if}
 		{/if}
 	</article>
 </aside>
