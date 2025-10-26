@@ -371,8 +371,13 @@
 	}
 
 	function searchBattlesByTitle(event) {
+		const query = (event.target.value || '').trim().toLowerCase();
+		if (!query) {
+			dropdownItems = [];
+			return;
+		}
 		dropdownItems = battlesGeoJson.features.filter((battle) => {
-			return battle.properties.title.toLowerCase().includes(event.target.value.toLowerCase());
+			return battle.properties.title.toLowerCase().includes(query);
 		});
 	}
 
@@ -490,6 +495,9 @@
 						<span>{maxYear}</span>
 					</div>
 				</div>
+				<button class="filter__reset" on:click={() => { filterMinYear = minYear; filterMaxYear = maxYear; applyDateFilter(); }}>
+					Reset
+				</button>
 			</div>
 		{/if}
 	</div>
