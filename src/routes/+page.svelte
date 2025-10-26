@@ -23,6 +23,16 @@
 		type: 'FeatureCollection',
 		features: [],
 	};
+	let allBattlesGeoJson = {
+		type: 'FeatureCollection',
+		features: [],
+	};
+
+	let minYear = 0;
+	let maxYear = new Date().getFullYear();
+	let filterMinYear = 0;
+	let filterMaxYear = maxYear;
+	let showFilter = false;
 
 	let dropdownItems = [];
 
@@ -36,6 +46,9 @@
 		map.on('load', async () => {
 			const data = await fetchBattlesData();
 			processBattleData(data.results.bindings);
+			// prepare filter ranges
+			allBattlesGeoJson = JSON.parse(JSON.stringify(battlesGeoJson));
+			calculateDateRange();
 			loading = false;
 			setTimeout(addLayers, 1000);
 		});
@@ -225,8 +238,21 @@
 		return match ? match[1] : null;
 	}
 
+	function extractYear(dateValue) {
+		if (!dateValue) return null;
+		try {
+			const d = new Date(dateValue);
+			const y = d.getFullYear();
+			return isNaN(y) ? null : y;
+		} catch {
+			return null;
+		}
+	}
+
 	function pushGeoJson(data, coordinates) {
 		const wikidataId = extractWikidataId(data.battle.value);
+		const startYear = extractYear(data.startDate?.value) ?? extractYear(data.date?.value);
+		const endYear = extractYear(data.endDate?.value) ?? startYear ?? null;
 		battlesGeoJson.features.push({
 			type: 'Feature',
 			properties: {
@@ -236,12 +262,38 @@
 				endDate: data.endDate ? convertDate(data.endDate.value) : '',
 				description: data.description?.value || '',
 				wikidataId: wikidataId || '',
+				year: startYear ?? endYear ?? null,
+				startYear: startYear,
+				endYear: endYear,
 			},
 			geometry: {
 				type: 'Point',
 				coordinates: coordinates,
 			},
 		});
+	}
+
+	function calculateDateRange() {
+		const years = allBattlesGeoJson.features
+			.map((f) => f.properties.year ?? f.properties.startYear ?? f.properties.endYear)
+			.filter((y) => y !== null && !isNaN(y));
+		if (years.length > 0) {
+			minYear = Math.min(...years);
+			maxYear = new Date().getFullYear();
+			filterMinYear = minYear;
+			filterMaxYear = maxYear;
+		}
+	}
+
+	function applyDateFilter() {
+		battlesGeoJson.features = allBattlesGeoJson.features.filter((f) => {
+			const year = f.properties.year ?? f.properties.startYear ?? f.properties.endYear;
+			if (year === null || isNaN(year)) return false;
+			return year >= filterMinYear && year <= filterMaxYear;
+		});
+		if (map && map.getSource('battles')) {
+			map.getSource('battles').setData(battlesGeoJson);
+		}
 	}
 
 	async function fetchDataFromWikipediaViaWikidata(wikidataId) {
@@ -408,6 +460,37 @@
 					</li>
 				{/each}
 			</ul>
+		{/if}
+	</div>
+
+	<div class="filter">
+		<button class="filter__toggle" on:click={() => showFilter = !showFilter}>
+			{showFilter ? 'Hide' : 'Show'} Date Filter
+		</button>
+		{#if showFilter}
+			<div class="filter__panel">
+				<div class="filter__inputs">
+					<label class="filter__label">
+						From Year
+						<input type="number" class="filter__number-input" bind:value={filterMinYear} min={minYear} max={maxYear} on:input={applyDateFilter} />
+					</label>
+					<label class="filter__label">
+						To Year
+						<input type="number" class="filter__number-input" bind:value={filterMaxYear} min={minYear} max={maxYear} on:input={applyDateFilter} />
+					</label>
+				</div>
+				<div class="filter__slider-container">
+					<div class="filter__slider-wrapper">
+						<input type="range" class="filter__slider filter__slider--min" min={minYear} max={maxYear} bind:value={filterMinYear} on:input={applyDateFilter} />
+						<input type="range" class="filter__slider filter__slider--max" min={minYear} max={maxYear} bind:value={filterMaxYear} on:input={applyDateFilter} />
+					</div>
+					<div class="filter__slider-labels">
+						<span>{minYear}</span>
+						<span class="filter__range-display">{filterMinYear} - {filterMaxYear}</span>
+						<span>{maxYear}</span>
+					</div>
+				</div>
+			</div>
 		{/if}
 	</div>
 {/if}
